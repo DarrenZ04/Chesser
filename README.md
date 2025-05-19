@@ -1,2 +1,2 @@
-pip install -r requirements.txt
-flask --app server.py --debug run
+1. pip install -r requirements.txt
+2. flask --app server.py --debug run
