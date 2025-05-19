@@ -4,11 +4,7 @@ import os
 import chess
 import numpy as np
 
-# Window settings
-WIDTH, HEIGHT = 480, 480
-ROWS, COLS = 8, 8
-SQ_SIZE = WIDTH // COLS
-FPS = 60
+from chess_bot import *
 
 # Colors
 WHITE = (245, 245, 220)
@@ -16,12 +12,6 @@ GRAY = (119, 136, 153)
 SELECT_HIGHLIGHT = (186, 202, 68)
 MOVE_HIGHLIGHT = (105, 105, 105)
 
-# Map piece symbols to integers for fast board-state access
-DTYPE = np.int8
-PIECE_MAP = {
-    'P':  1, 'N':  2, 'B':  3, 'R':  4, 'Q':  5, 'K':  6,
-    'p': -1, 'n': -2, 'b': -3, 'r': -4, 'q': -5, 'k': -6
-}
 
 # Load images from 'images/' folder. Names: wp.png, wn.png, ... bn.png, etc.
 def load_images():
@@ -39,17 +29,7 @@ def load_images():
             raise FileNotFoundError(f"Missing image for '{symbol}' in {base_path}")
     return images
 
-# Convert python-chess Board to numpy 8x8 array
-def board_to_array(board):
-    arr = np.zeros((ROWS, COLS), dtype=DTYPE)
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece:
-            sym = piece.symbol()
-            r = 7 - chess.square_rank(square)
-            c = chess.square_file(square)
-            arr[r, c] = PIECE_MAP[sym]
-    return arr
+
 
 # Draw the checkerboard
 def draw_board(win):
@@ -98,35 +78,39 @@ def main():
     running = True
     while running:
         clock.tick(FPS)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mx, my = pygame.mouse.get_pos()
-                c = mx // SQ_SIZE
-                r = my // SQ_SIZE
-                clicked = chess.square(c, 7 - r)
-                piece = board.piece_at(clicked)
-                # If no selection yet, select your piece and show moves
-                if selected is None:
-                    if piece and piece.color == board.turn:
-                        selected = clicked
-                        # collect dest squares for moves from this square
-                        legal_moves = [m.to_square for m in board.legal_moves if m.from_square == selected]
-                else:
-                    # If clicked on a legal destination, make that move
-                    if clicked in legal_moves:
-                        # find move object (handle promotions)
-                        move = next((m for m in board.legal_moves
-                                     if m.from_square == selected and m.to_square == clicked), None)
-                        if move:
-                            board.push(move)
-                            board_array = board_to_array(board)
-                    # clear selection in any case
-                    selected = None
-                    legal_moves = []
 
+        if board.turn == chess.WHITE:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mx, my = pygame.mouse.get_pos()
+                    c = mx // SQ_SIZE
+                    r = my // SQ_SIZE
+                    clicked = chess.square(c, 7 - r)
+                    piece = board.piece_at(clicked)
+                    # If no selection yet, select your piece and show moves
+                    if selected is None:
+                        if piece and piece.color == board.turn:
+                            selected = clicked
+                            # collect dest squares for moves from this square
+                            legal_moves = [m.to_square for m in board.legal_moves if m.from_square == selected]
+                    else:
+                        # If clicked on a legal destination, make that move
+                        if clicked in legal_moves:
+                            # find move object (handle promotions)
+                            move = next((m for m in board.legal_moves
+                                        if m.from_square == selected and m.to_square == clicked), None)
+                            if move:
+                                board.push(move)
+                                board_array = board_to_array(board)
+                        # clear selection in any case
+                        selected = None
+                        legal_moves = []
+        else:
+            board.push(get_best_move(board))
         draw_board(win)
         draw_highlights(win, selected, legal_moves)
         draw_pieces(win, board, images)
