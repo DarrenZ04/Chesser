@@ -14,7 +14,7 @@ FPS = 60
 WHITE = (245, 245, 220)
 GRAY = (119, 136, 153)
 SELECT_HIGHLIGHT = (186, 202, 68)
-MOVE_HIGHLIGHT = (246, 246, 105)
+MOVE_HIGHLIGHT = (105, 105, 105)
 
 # Map piece symbols to integers for fast board-state access
 DTYPE = np.int8
