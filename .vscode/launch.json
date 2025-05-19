@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Flask (Debug)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/server.py",
+      "args": [
+        "--no-debugger",
+        "--no-reload"
+      ],
+      "env": {
+        "FLASK_APP": "server.py",
+        "FLASK_ENV": "development"
+      },
+      "jinja": true
+    }
+  ]
+}

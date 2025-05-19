@@ -73,8 +73,8 @@ def get_best_move(board, depth = lookahead):
         for num in row:
             if num != 0:
                 count += 1
-    if board.legal_moves.count() < 15 and count < 10:
-        depth = 8
+    if board.legal_moves.count() < 15 and count < 8:
+        depth = 5
 
 
     if board.turn == chess.WHITE:

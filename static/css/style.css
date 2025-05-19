@@ -1,0 +1,43 @@
+/* Reset default margins and paddings */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Full-screen flex container to center the board */
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f0d0a0;   /* light wood-tone background */
+  font-family: Arial, sans-serif;
+}
+
+/* Add a subtle drop-shadow around the board */
+#board {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+/* Style the move-highlight circles if you wanted larger or different styling */
+.square-available-move {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+  border-radius: 50%;
+}
+
+/* Optional: messages or status bars */
+#status {
+  position: absolute;
+  top: 1rem;
+  width: 100%;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+/* Optional: a container around board + status */
+#container {
+  position: relative;
+}
