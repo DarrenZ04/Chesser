@@ -4,6 +4,8 @@ import sys
 import os
 import chess
 import numpy as np
+import chess.polyglot
+import random
 
 # [-4, -2, -3, -5, -6, -3, -2, -4],  
 # [-1, -1, -1, -1, -1, -1, -1, -1],  
@@ -33,7 +35,10 @@ PIECE_MAP = {
     'p': -1, 'n': -2, 'b': -3, 'r': -4, 'q': -5, 'k': -6
 }
 
+#depth of search - 1
 lookahead = 3
+#opening book data
+BOOK = chess.polyglot.open_reader("openings/book.bin")
 
 
 def min_max(board, depth, alpha, beta, maximizing):
@@ -66,16 +71,22 @@ def min_max(board, depth, alpha, beta, maximizing):
         return min_score
     
 def get_best_move(board, depth = lookahead):
+
     best_move = None
     array = board_to_array(board)
     count = 0
+
+    if board.fullmove_number <= 10:           #book for the first 10 moves
+        book_move = get_opening_move(board)
+        if book_move:
+            return book_move
+        
     for row in array:
         for num in row:
             if num != 0:
                 count += 1
     if board.legal_moves.count() < 15 and count < 8:
         depth = 5
-
 
     if board.turn == chess.WHITE:
         best_val = float('-inf')
@@ -97,6 +108,17 @@ def get_best_move(board, depth = lookahead):
                 best_move = move
     return best_move
 
+def get_opening_move(board: chess.Board) -> chess.Move | None:
+    """
+    Returns a book move for this position, or None if none found.
+    """
+    try:
+        # weighted_choice picks proportionally to entry weights
+        entry = BOOK.weighted_choice(board)
+        return entry.move if entry else None
+    except IndexError:
+        return None
+    
 def evaluate_board(board):
     array_board = board_to_array(board)
     scores = count_material(array_board)

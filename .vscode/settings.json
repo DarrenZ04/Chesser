@@ -1,23 +1,19 @@
 {
   // Point VS Code at your venv’s Python (adjust path on Windows vs. macOS/Linux)
   "python.pythonPath": "${workspaceFolder}/.venv/bin/python",
-
   // Load environment vars (e.g. FLASK_ENV) when you run/debug
   "python.envFile": "${workspaceFolder}/.env",
-
   // Auto‐format and organize imports on save
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.organizeImports": true
+    "source.organizeImports": "explicit"
   },
-
   // Hide these folders in the Explorer
   "files.exclude": {
     "**/__pycache__": true,
     "**/.pytest_cache": true,
     "**/.venv": true
   },
-
   // Enable Jinja support in HTML templates
   "jinja.enable": true
 }
