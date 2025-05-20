@@ -106,6 +106,8 @@ def get_best_move(board, depth = lookahead):
             if value < best_val:
                 best_val = value
                 best_move = move
+
+    print("final score:", best_val)
     return best_move
 
 def get_opening_move(board: chess.Board) -> chess.Move | None:
@@ -120,14 +122,24 @@ def get_opening_move(board: chess.Board) -> chess.Move | None:
         return None
     
 def evaluate_board(board):
+    score = 0
     array_board = board_to_array(board)
-    scores = count_material(array_board)
-    return scores[0] - scores[1]
 
-def count_material(board):
+    material_scores = count_material(array_board)
+    development_scores = development(board, array_board)
+    pawn_scores = pawn_push(array_board)
+
+
+    score += material_scores[0] - material_scores[1]
+    score += (development_scores[0] - development_scores[1]) * 0.1
+    score += (pawn_scores[0] - pawn_scores[1]) * 0.1
+
+    return score
+
+def count_material(array_board):
     scores = [0, 0]
 
-    for row in board:
+    for row in array_board:
         for piece in row:
             if piece > 0:
                 # white case
@@ -135,7 +147,38 @@ def count_material(board):
             elif piece < 0:
                 # black case
                 scores[1] += piece_to_value(piece)
-    
+    return scores
+
+def development(board, array_board):
+    scores = [0, 0]
+
+    for r_index, row in enumerate(array_board):
+        for c_index, cell in enumerate(row):
+            if cell > 0 and piece_to_value(cell) == 3: # knights and bishops
+                # white case
+                scores[0] += len(board.attacks(chess.square(c_index, r_index)))
+            elif cell < 0 and piece_to_value(cell) == 3: # knights and bishops
+                # black case
+                scores[1] += len(board.attacks(chess.square(c_index, r_index)))
+    return scores
+
+def pawn_push(array_board):
+    scores = [0, 0]
+
+    for r_index, row in enumerate(array_board):
+        for c_index, cell in enumerate(row):
+            if cell > 0 and piece_to_value(cell) == 1: # pawns
+                # white case
+                if c_index == 3 or 5:
+                    scores[0] += 1
+                elif c_index == 4:
+                    scores[0] += 2
+            elif cell < 0 and piece_to_value(cell) == 1: # pawns
+                # black case
+                if c_index == 6 or 4:
+                    scores[0] += 1
+                elif c_index == 5:
+                    scores[0] += 2
     return scores
 
 def piece_to_value(piece):
