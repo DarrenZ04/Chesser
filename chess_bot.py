@@ -72,7 +72,7 @@ def min_max(board, depth, alpha, beta, maximizing):
     
 def get_best_move(board, depth = lookahead):
 
-    best_move = None
+    best_move = [m for m in board.legal_moves][0]
     array = board_to_array(board)
     count = 0
 
