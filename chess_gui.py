@@ -110,7 +110,13 @@ def main():
                         selected = None
                         legal_moves = []
         else:
-            board.push(get_best_move(board))
+            move = get_best_move(board)
+
+            if move != None:
+                board.push(move)
+            else:
+                continue
+
         draw_board(win)
         draw_highlights(win, selected, legal_moves)
         draw_pieces(win, board, images)

@@ -7,6 +7,8 @@ import numpy as np
 import chess.polyglot
 import random
 
+from zobrist_hash import *
+
 # [-4, -2, -3, -5, -6, -3, -2, -4],  
 # [-1, -1, -1, -1, -1, -1, -1, -1],  
 # [ 0,  0,  0,  0,  0,  0,  0,  0], 
@@ -36,12 +38,22 @@ PIECE_MAP = {
 }
 
 #depth of search - 1
-lookahead = 3
+lookahead = 4
 #opening book data
 BOOK = chess.polyglot.open_reader("openings/book.bin")
+# analyzed states
+seen_states = {}
+hit_count = 0
 
 
-def min_max(board, depth, alpha, beta, maximizing):
+
+def min_max(board, depth, alpha, beta, maximizing, current_hash):
+    if current_hash in seen_states:
+        entry = seen_states[current_hash]
+        global hit_count
+        hit_count += 1
+        return entry["score"]
+
     if depth == 0 or board.is_game_over():
         if board.is_checkmate():
             return float('-inf') if maximizing else float('inf')
@@ -50,33 +62,43 @@ def min_max(board, depth, alpha, beta, maximizing):
     if maximizing:
         max_score = float('-inf')
         for move in board.legal_moves:
+            new_hash = process_move(current_hash, board, move)
+
             board.push(move)
-            score = min_max(board, depth - 1, alpha, beta, not maximizing)
+            score = min_max(board, depth - 1, alpha, beta, not maximizing, new_hash)
             board.pop()
+
             max_score = max(max_score, score)
             alpha = max(alpha, score)
             if beta <= alpha:
                 break
+        seen_states[current_hash] = {"score": max_score}
         return max_score
     else:
         min_score = float('inf')
         for move in board.legal_moves:
+            new_hash = process_move(current_hash, board, move)
+
             board.push(move)
-            score = min_max(board, depth - 1, alpha, beta, not maximizing)
+            score = min_max(board, depth - 1, alpha, beta, not maximizing, new_hash)
             board.pop()
+
             min_score = min(min_score, score)
-            alpha = min(alpha, score)
+            beta = min(beta, score)
             if beta <= alpha:
                 break
+        seen_states[current_hash] = {"score": min_score}
         return min_score
     
 def get_best_move(board, depth = lookahead):
+    if board.legal_moves.count() == 0:
+        return None
 
     best_move = [m for m in board.legal_moves][0]
     array = board_to_array(board)
     count = 0
 
-    if board.fullmove_number <= 10:           #book for the first 10 moves
+    if board.fullmove_number <= 10:           # book for the first 10 moves
         book_move = get_opening_move(board)
         if book_move:
             return book_move
@@ -92,7 +114,8 @@ def get_best_move(board, depth = lookahead):
         best_val = float('-inf')
         for move in board.legal_moves:
             board.push(move)
-            value = min_max(board, depth - 1, float('-inf'), float('inf'), False)
+            hash = get_board_hash(board)
+            value = min_max(board, depth - 1, float('-inf'), float('inf'), False, hash)
             board.pop()
             if value > best_val:
                 best_val = value
@@ -101,13 +124,14 @@ def get_best_move(board, depth = lookahead):
         best_val = float('inf')
         for move in board.legal_moves:
             board.push(move)
-            value = min_max(board, depth - 1, float('-inf'), float('inf'), True)
+            hash = get_board_hash(board)
+            value = min_max(board, depth - 1, float('-inf'), float('inf'), True, hash)
             board.pop()
             if value < best_val:
                 best_val = value
                 best_move = move
 
-    print("final score:", best_val)
+    print("final score:", best_val, hit_count, len(seen_states))
     return best_move
 
 def get_opening_move(board: chess.Board) -> chess.Move | None:
@@ -169,13 +193,13 @@ def pawn_push(array_board):
         for c_index, cell in enumerate(row):
             if cell > 0 and piece_to_value(cell) == 1: # pawns
                 # white case
-                if c_index == 3 or 5:
+                if c_index in (3, 5):
                     scores[0] += 1
                 elif c_index == 4:
                     scores[0] += 2
             elif cell < 0 and piece_to_value(cell) == 1: # pawns
                 # black case
-                if c_index == 6 or 4:
+                if c_index in (6, 4):
                     scores[0] += 1
                 elif c_index == 5:
                     scores[0] += 2
@@ -185,7 +209,7 @@ def piece_to_value(piece):
     pt = abs(piece)
     if pt == 1:
         return 1
-    elif pt == 2 or 3:
+    elif pt in (2, 3):
         return 3
     elif pt == 4:
         return 5
@@ -194,9 +218,8 @@ def piece_to_value(piece):
     elif pt == 6:
         return 10000
     else:
-        print("error :)")
+        print("error :)", pt)
         exit()
-
 
 # Convert python-chess Board to numpy 8x8 array
 def board_to_array(board):
