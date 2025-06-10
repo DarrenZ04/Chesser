@@ -167,6 +167,25 @@ def process_move(hash, board, move):
 
     return hash
 
+# used to get "board states" for irreversible moves
+def get_board_state_hash(board):
+    hash = np.uint64(0)
+
+    if board.has_kingside_castling_rights(chess.WHITE):
+        hash = np.bitwise_xor(hash, white_castle[1])
+    if board.has_queenside_castling_rights(chess.WHITE):
+        hash = np.bitwise_xor(hash, white_castle[0])
+    if board.has_kingside_castling_rights(chess.BLACK):
+        hash = np.bitwise_xor(hash, black_castle[1])
+    if board.has_queenside_castling_rights(chess.BLACK):
+        hash = np.bitwise_xor(hash, black_castle[0])
+
+    if board.ep_square is not None:
+        file = chess.square_file(board.ep_square)
+        hash = np.bitwise_xor(hash, en_passant[file])
+    
+    return hash
+
 def get_piece_hash(piece, square_index):
     if piece == None:
         return None
