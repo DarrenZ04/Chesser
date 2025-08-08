@@ -18,6 +18,18 @@ from zobrist_hash import *
 # [ 1,  1,  1,  1,  1,  1,  1,  1], 
 # [ 4,  2,  3,  5,  6,  3,  2,  4]
 
+# pawn weights for positional evaluation
+PAWN_TABLE = [
+    [0,   0,   0,   0,   0,   0,   0,   0],
+    [5,   5,   5,   5,   5,   5,   5,   5],
+    [1,   1,   2,   3,   3,   2,   1,   1],
+    [0.5, 0.5, 1,   2.5, 2.5, 1,   0.5, 0.5],
+    [0,   0,   0,   2,   2,   0,   0,   0],
+    [0.5,-0.5,-1,   0,   0,  -1, -0.5, 0.5],
+    [0.5, 1,   1,  -2,  -2,  1,   1,   0.5],
+    [0,   0,   0,   0,   0,   0,   0,   0]
+]
+
 # Window settings
 WIDTH, HEIGHT = 480, 480
 ROWS, COLS = 8, 8
@@ -204,29 +216,29 @@ def evaluate_board_fast(board):
         for c_index, cell in enumerate(row):
             # count material
             if cell > 0:
-                # white case
                 mat_scores[0] += piece_to_value(cell)
+                # Piece-square table for white pawns
+                if abs(cell) == 1:
+                    score += PAWN_TABLE[r_index][c_index]
             elif cell < 0:
-                # black case
                 mat_scores[1] += piece_to_value(cell)
+                # Piece-square table for black pawns (flip table)
+                if abs(cell) == 1:
+                    score -= PAWN_TABLE[7 - r_index][c_index]
 
             # development
             if cell > 0 and piece_to_value(cell) == 3: # knights and bishops
-                # white case
                 dev_scores[0] += len(board.attacks(chess.square(c_index, r_index)))
             elif cell < 0 and piece_to_value(cell) == 3: # knights and bishops
-                # black case
                 dev_scores[1] += len(board.attacks(chess.square(c_index, r_index)))
 
             # pawn scores
             if cell > 0 and piece_to_value(cell) == 1: # pawns
-                # white case
                 if c_index in (3, 5):
                     pawn_scores[0] += 1
                 elif c_index == 4:
                     pawn_scores[0] += 2
             elif cell < 0 and piece_to_value(cell) == 1: # pawns
-                # black case
                 if c_index in (6, 4):
                     pawn_scores[0] += 1
                 elif c_index == 5:
@@ -236,7 +248,7 @@ def evaluate_board_fast(board):
     score += (dev_scores[0] - dev_scores[1]) * 0.1
     score += (pawn_scores[0] - pawn_scores[1]) * 0.1
 
-    return score
+    return score        
 
 
 def evaluate_board(board):
