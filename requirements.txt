@@ -1,8 +1,5 @@
 Flask
 python-chess
 numpy
-math
 pygame
-sys
-os
 chess
