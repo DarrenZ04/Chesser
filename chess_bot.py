@@ -18,17 +18,6 @@ from zobrist_hash import *
 # [ 1,  1,  1,  1,  1,  1,  1,  1], 
 # [ 4,  2,  3,  5,  6,  3,  2,  4]
 
-# pawn weights for positional evaluation
-PAWN_TABLE = [
-    [0,   0,   0,   0,   0,   0,   0,   0],
-    [5,   5,   5,   5,   5,   5,   5,   5],
-    [1,   1,   2,   3,   3,   2,   1,   1],
-    [0.5, 0.5, 1,   2.5, 2.5, 1,   0.5, 0.5],
-    [0,   0,   0,   2,   2,   0,   0,   0],
-    [0.5,-0.5,-1,   0,   0,  -1, -0.5, 0.5],
-    [0.5, 1,   1,  -2,  -2,  1,   1,   0.5],
-    [0,   0,   0,   0,   0,   0,   0,   0]
-]
 
 # Window settings
 WIDTH, HEIGHT = 480, 480
@@ -50,7 +39,7 @@ PIECE_MAP = {
 }
 
 #depth of search - 1
-lookahead = 6
+lookahead = 4
 nmp_reduction = 3
 #opening book data
 BOOK = chess.polyglot.open_reader("openings/book.bin")
@@ -264,19 +253,6 @@ def evaluate_board(board):
     score += (pawn_scores[0] - pawn_scores[1]) * 0.1
 
     return score
-
-def count_material(array_board):
-    scores = [0, 0]
-
-    for row in array_board:
-        for piece in row:
-            if piece > 0:
-                # white case
-                scores[0] += piece_to_value(piece)
-            elif piece < 0:
-                # black case
-                scores[1] += piece_to_value(piece)
-    return scores
 
 def development(board, array_board):
     scores = [0, 0]
