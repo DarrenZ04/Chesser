@@ -40,42 +40,25 @@ PIECE_MAP = {
 
 #depth of search - 1
 lookahead = 4
-nmp_reduction = 3
 #opening book data
 BOOK = chess.polyglot.open_reader("openings/book.bin")
 # analyzed states
 seen_states = {}
 hit_count = 0
-full_eval_count = 0
-nmp_attempt = 0
-nmp_success = 0
 
-def min_max(board, depth, alpha, beta, maximizing, current_hash, caching = True):
+
+
+def min_max(board, depth, alpha, beta, maximizing, current_hash):
     if current_hash in seen_states:
         entry = seen_states[current_hash]
-        if depth >= entry["depth"]:     
-            global hit_count
-            hit_count += 1
-            return entry["score"]
+        global hit_count
+        hit_count += 1
+        return entry["score"]
 
     if depth == 0 or board.is_game_over():
         if board.is_checkmate():
             return float('-inf') if maximizing else float('inf')
-        global full_eval_count
-        full_eval_count += 1
-        return evaluate_board_fast(board)
-    
-    if maximizing and depth >= 3:
-        board.push(chess.Move.null())
-        v = -min_max(board, depth - nmp_reduction, 1 - beta, -beta, not maximizing, get_board_hash(board), False)
-        board.pop()
-        global nmp_attempt
-        nmp_attempt += 1
-        
-        if v >= beta:
-            global nmp_success
-            nmp_success += 1
-            return v
+        return evaluate_board(board)
 
     if maximizing:
         max_score = float('-inf')
@@ -90,12 +73,7 @@ def min_max(board, depth, alpha, beta, maximizing, current_hash, caching = True)
             alpha = max(alpha, score)
             if beta <= alpha:
                 break
-        if caching:
-            seen_states[current_hash] = {
-                "score": max_score,
-                "depth": depth,
-                # "state": get_board_state_hash(board)
-            }
+        seen_states[current_hash] = {"score": max_score}
         return max_score
     else:
         min_score = float('inf')
@@ -110,20 +88,12 @@ def min_max(board, depth, alpha, beta, maximizing, current_hash, caching = True)
             beta = min(beta, score)
             if beta <= alpha:
                 break
-        if caching:
-            seen_states[current_hash] = {
-                "score": min_score,
-                "depth": depth,
-                # "state": get_board_state_hash(board)
-            }
+        seen_states[current_hash] = {"score": min_score}
         return min_score
     
 def get_best_move(board, depth = lookahead):
     if board.legal_moves.count() == 0:
         return None
-    
-    if len(seen_states) > 0:
-        clear_stored_states(board)
 
     best_move = [m for m in board.legal_moves][0]
     array = board_to_array(board)
@@ -162,24 +132,8 @@ def get_best_move(board, depth = lookahead):
                 best_val = value
                 best_move = move
 
-    print("final score:", best_val)
-    print("full eval count", full_eval_count)
-    print("hit count:", hit_count)
-    print("seen_states size:", len(seen_states))
-    print("nmp_attempt", nmp_attempt, "nmp_success:", nmp_success)
-    print()
+    print("final score:", best_val, hit_count, len(seen_states))
     return best_move
-
-def clear_stored_states(board):
-    min_depth = len(board.move_stack)
-    keys_to_delete = [key for key, state in seen_states.items() if state["depth"] < min_depth]
-    for key in keys_to_delete:
-        del seen_states[key]
-    
-    # board_state_hash = get_board_state_hash(board)
-    # keys_to_delete = [key for key, state in seen_states.items() if not board_state_hash == state["state"]]
-    # for key in keys_to_delete:
-    #     del seen_states[key]
 
 def get_opening_move(board: chess.Board) -> chess.Move | None:
     """
@@ -191,55 +145,7 @@ def get_opening_move(board: chess.Board) -> chess.Move | None:
         return entry.move if entry else None
     except IndexError:
         return None
-
-# does the same thing as evaluate_board, but does it all at once for speed
-# doesn't use functions is all self contained
-def evaluate_board_fast(board):
-    score = 0
-    mat_scores = [0, 0]
-    dev_scores = [0, 0]
-    pawn_scores = [0, 0]
-    array_board = board_to_array(board)
-
-    for r_index, row in enumerate(array_board):
-        for c_index, cell in enumerate(row):
-            # count material
-            if cell > 0:
-                mat_scores[0] += piece_to_value(cell)
-                # Piece-square table for white pawns
-                if abs(cell) == 1:
-                    score += PAWN_TABLE[r_index][c_index]
-            elif cell < 0:
-                mat_scores[1] += piece_to_value(cell)
-                # Piece-square table for black pawns (flip table)
-                if abs(cell) == 1:
-                    score -= PAWN_TABLE[7 - r_index][c_index]
-
-            # development
-            if cell > 0 and piece_to_value(cell) == 3: # knights and bishops
-                dev_scores[0] += len(board.attacks(chess.square(c_index, r_index)))
-            elif cell < 0 and piece_to_value(cell) == 3: # knights and bishops
-                dev_scores[1] += len(board.attacks(chess.square(c_index, r_index)))
-
-            # pawn scores
-            if cell > 0 and piece_to_value(cell) == 1: # pawns
-                if c_index in (3, 5):
-                    pawn_scores[0] += 1
-                elif c_index == 4:
-                    pawn_scores[0] += 2
-            elif cell < 0 and piece_to_value(cell) == 1: # pawns
-                if c_index in (6, 4):
-                    pawn_scores[0] += 1
-                elif c_index == 5:
-                    pawn_scores[0] += 2
-
-    score += mat_scores[0] - mat_scores[1]
-    score += (dev_scores[0] - dev_scores[1]) * 0.1
-    score += (pawn_scores[0] - pawn_scores[1]) * 0.1
-
-    return score        
-
-
+    
 def evaluate_board(board):
     score = 0
     array_board = board_to_array(board)
@@ -247,6 +153,7 @@ def evaluate_board(board):
     material_scores = count_material(array_board)
     development_scores = development(board, array_board)
     pawn_scores = pawn_push(array_board)
+
 
     score += material_scores[0] - material_scores[1]
     score += (development_scores[0] - development_scores[1]) * 0.1
