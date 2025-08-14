@@ -161,6 +161,19 @@ def evaluate_board(board):
 
     return score
 
+def count_material(array_board):
+    scores = [0, 0]
+
+    for row in array_board:
+        for piece in row:
+            if piece > 0:
+                # white case
+                scores[0] += piece_to_value(piece)
+            elif piece < 0:
+                # black case
+                scores[1] += piece_to_value(piece)
+    return scores
+
 def development(board, array_board):
     scores = [0, 0]
 
