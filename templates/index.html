@@ -16,6 +16,20 @@
     <div id="container">
         <h1 style="text-align: center;">Chesser</h1>
         <div id="status"></div>
+        <div style="text-align: center; margin: 20px 0;">
+            <label for="depth-selector" style="margin-right: 10px;">AI Lookahead Depth:</label>
+            <select id="depth-selector" style="padding: 5px; font-size: 16px;">
+                <option value="1">1 move</option>
+                <option value="2">2 moves</option>
+                <option value="3" selected>3 moves</option>
+                <option value="4">4 moves</option>
+                <option value="5">5 moves</option>
+                <option value="6">6 moves</option>
+                <option value="7">7 moves</option>
+                <option value="8">8 moves</option>
+            </select>
+            <button id="new-game-btn" style="margin-left: 20px; padding: 5px 15px; font-size: 16px;">New Game</button>
+        </div>
         <div id="board" style="width: 600px; margin: auto;"></div>
     </div>
 

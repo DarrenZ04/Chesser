@@ -46,91 +46,244 @@ BOOK = chess.polyglot.open_reader("openings/book.bin")
 seen_states = {}
 hit_count = 0
 
+# transposition table entry flags
+TT_EXACT = 0
+TT_LOWERBOUND = 1
+TT_UPPERBOUND = 2
+
+# simple move-ordering helpers
+history_heuristic = {}
+killer_moves = {}
+
+MAX_QUIESCENCE_DEPTH = 8
+
+def _mvv_lva(board, move):
+    # Most Valuable Victim - Least Valuable Attacker scoring for captures
+    if not board.is_capture(move):
+        return 0
+    victim = board.piece_at(move.to_square)
+    attacker = board.piece_at(move.from_square)
+    v = piece_to_value(PIECE_MAP[victim.symbol()] if victim else 0) if victim else 0
+    a = piece_to_value(PIECE_MAP[attacker.symbol()] if attacker else 0) if attacker else 0
+    return (v * 100) - a
+
+def order_moves(board, moves, tt_move=None, depth=0):
+    scored = []
+    for m in moves:
+        score = 0
+        if tt_move is not None and m == tt_move:
+            score += 1_000_000
+        if board.is_capture(m):
+            score += 10_000 + _mvv_lva(board, m)
+        if m.promotion is not None:
+            score += 9_000
+        try:
+            if board.gives_check(m):
+                score += 1_000
+        except Exception:
+            pass
+        score += history_heuristic.get((depth, m), 0)
+        if depth in killer_moves and m in killer_moves[depth]:
+            score += 500
+        scored.append((score, m))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [m for _, m in scored]
 
 
-def min_max(board, depth, alpha, beta, maximizing, current_hash):
+
+def min_max(board, depth, alpha, beta, maximizing, current_hash, ply=0):
+    # Transposition table probe
     if current_hash in seen_states:
         entry = seen_states[current_hash]
-        global hit_count
-        hit_count += 1
-        return entry["score"]
+        if entry["depth"] >= depth:
+            global hit_count
+            hit_count += 1
+            flag = entry["flag"]
+            if flag == TT_EXACT:
+                return entry["score"]
+            if flag == TT_LOWERBOUND and entry["score"] > alpha:
+                alpha = entry["score"]
+            elif flag == TT_UPPERBOUND and entry["score"] < beta:
+                beta = entry["score"]
+            if alpha >= beta:
+                return entry["score"]
 
     if depth == 0 or board.is_game_over():
         if board.is_checkmate():
             return float('-inf') if maximizing else float('inf')
-        return evaluate_board(board)
+        # Quiescence search to reduce horizon effect
+        return quiescence(board, alpha, beta, maximizing, current_hash, qdepth=0)
+
+    best_move = seen_states.get(current_hash, {}).get("move")
 
     if maximizing:
-        max_score = float('-inf')
-        for move in board.legal_moves:
+        value = float('-inf')
+        legal_moves = list(board.legal_moves)
+        for move in order_moves(board, legal_moves, tt_move=best_move, depth=ply):
             new_hash = process_move(current_hash, board, move)
-
             board.push(move)
-            score = min_max(board, depth - 1, alpha, beta, not maximizing, new_hash)
+            score = min_max(board, depth - 1, alpha, beta, False, new_hash, ply+1)
             board.pop()
-
-            max_score = max(max_score, score)
-            alpha = max(alpha, score)
-            if beta <= alpha:
+            if score > value:
+                value = score
+                best_move = move
+            if score > alpha:
+                alpha = score
+                # update history heuristic on beta-improving moves
+                history_heuristic[(ply, move)] = history_heuristic.get((ply, move), 0) + depth * depth
+            if alpha >= beta:
+                # store killer move
+                killer_moves.setdefault(ply, set()).add(move)
                 break
-        seen_states[current_hash] = {"score": max_score}
-        return max_score
+        # store TT
+        flag = TT_EXACT
+        if value <= alpha:
+            flag = TT_UPPERBOUND
+        elif value >= beta:
+            flag = TT_LOWERBOUND
+        seen_states[current_hash] = {"score": value, "depth": depth, "flag": flag, "move": best_move}
+        return value
     else:
-        min_score = float('inf')
-        for move in board.legal_moves:
+        value = float('inf')
+        legal_moves = list(board.legal_moves)
+        for move in order_moves(board, legal_moves, tt_move=best_move, depth=ply):
             new_hash = process_move(current_hash, board, move)
-
             board.push(move)
-            score = min_max(board, depth - 1, alpha, beta, not maximizing, new_hash)
+            score = min_max(board, depth - 1, alpha, beta, True, new_hash, ply+1)
             board.pop()
-
-            min_score = min(min_score, score)
-            beta = min(beta, score)
-            if beta <= alpha:
+            if score < value:
+                value = score
+                best_move = move
+            if score < beta:
+                beta = score
+                history_heuristic[(ply, move)] = history_heuristic.get((ply, move), 0) + depth * depth
+            if alpha >= beta:
+                killer_moves.setdefault(ply, set()).add(move)
                 break
-        seen_states[current_hash] = {"score": min_score}
-        return min_score
+        flag = TT_EXACT
+        if value <= alpha:
+            flag = TT_UPPERBOUND
+        elif value >= beta:
+            flag = TT_LOWERBOUND
+        seen_states[current_hash] = {"score": value, "depth": depth, "flag": flag, "move": best_move}
+        return value
+
+def quiescence(board, alpha, beta, maximizing, current_hash, qdepth=0):
+    # Stand pat
+    stand_pat = evaluate_board(board)
+    if maximizing:
+        if stand_pat >= beta:
+            return beta
+        if stand_pat > alpha:
+            alpha = stand_pat
+    else:
+        if stand_pat <= alpha:
+            return alpha
+        if stand_pat < beta:
+            beta = stand_pat
+
+    if qdepth >= MAX_QUIESCENCE_DEPTH:
+        return stand_pat
+
+    # Only consider noisy moves
+    tt_move = seen_states.get(current_hash, {}).get("move")
+    captures = [m for m in board.legal_moves if board.is_capture(m) or m.promotion is not None]
+    if not captures:
+        return stand_pat
+
+    if maximizing:
+        value = stand_pat
+        for move in order_moves(board, captures, tt_move=tt_move):
+            new_hash = process_move(current_hash, board, move)
+            board.push(move)
+            score = quiescence(board, alpha, beta, False, new_hash, qdepth+1)
+            board.pop()
+            if score > value:
+                value = score
+            if value > alpha:
+                alpha = value
+            if alpha >= beta:
+                break
+        return value
+    else:
+        value = stand_pat
+        for move in order_moves(board, captures, tt_move=tt_move):
+            new_hash = process_move(current_hash, board, move)
+            board.push(move)
+            score = quiescence(board, alpha, beta, True, new_hash, qdepth+1)
+            board.pop()
+            if score < value:
+                value = score
+            if value < beta:
+                beta = value
+            if alpha >= beta:
+                break
+        return value
     
-def get_best_move(board, depth = lookahead):
+def get_best_move(board, depth=None):
+    if depth is None:
+        depth = lookahead
     if board.legal_moves.count() == 0:
         return None
 
-    best_move = [m for m in board.legal_moves][0]
-    array = board_to_array(board)
-    count = 0
-
-    if board.fullmove_number <= 10:           # book for the first 10 moves
+    # Opening book for early moves
+    if board.fullmove_number <= 10:
         book_move = get_opening_move(board)
         if book_move:
             return book_move
-        
-    for row in array:
-        for num in row:
-            if num != 0:
-                count += 1
-    if board.legal_moves.count() < 15 and count < 8:
-        depth = 5
 
-    if board.turn == chess.WHITE:
-        best_val = float('-inf')
-        for move in board.legal_moves:
-            board.push(move)
-            hash = get_board_hash(board)
-            value = min_max(board, depth - 1, float('-inf'), float('inf'), False, hash)
-            board.pop()
-            if value > best_val:
-                best_val = value
-                best_move = move
-    else:
-        best_val = float('inf')
-        for move in board.legal_moves:
-            board.push(move)
-            hash = get_board_hash(board)
-            value = min_max(board, depth - 1, float('-inf'), float('inf'), True, hash)
-            board.pop()
-            if value < best_val:
-                best_val = value
-                best_move = move
+    # Reset/prepare search state per root
+    global seen_states, hit_count
+    seen_states = {}
+    hit_count = 0
+
+    current_hash = get_board_hash(board)
+    best_move = None
+    best_val = float('-inf') if board.turn == chess.WHITE else float('inf')
+
+    # Simple endgame depth extension heuristic
+    array = board_to_array(board)
+    nonzero = int(np.count_nonzero(array))
+    if board.legal_moves.count() < 15 and nonzero < 8:
+        depth = max(depth, 5)
+
+    # Iterative deepening to improve move ordering
+    for d in range(1, depth + 1):
+        alpha = float('-inf')
+        beta = float('inf')
+        pv_move = seen_states.get(current_hash, {}).get("move")
+        moves = list(board.legal_moves)
+        ordered = order_moves(board, moves, tt_move=pv_move, depth=0)
+        if board.turn == chess.WHITE:
+            best_val_iter = float('-inf')
+            best_move_iter = best_move or (ordered[0] if ordered else None)
+            for move in ordered:
+                new_hash = process_move(current_hash, board, move)
+                board.push(move)
+                value = min_max(board, d - 1, alpha, beta, False, new_hash, ply=1)
+                board.pop()
+                if value > best_val_iter:
+                    best_val_iter = value
+                    best_move_iter = move
+                if value > alpha:
+                    alpha = value
+            best_val = best_val_iter
+            best_move = best_move_iter
+        else:
+            best_val_iter = float('inf')
+            best_move_iter = best_move or (ordered[0] if ordered else None)
+            for move in ordered:
+                new_hash = process_move(current_hash, board, move)
+                board.push(move)
+                value = min_max(board, d - 1, alpha, beta, True, new_hash, ply=1)
+                board.pop()
+                if value < best_val_iter:
+                    best_val_iter = value
+                    best_move_iter = move
+                if value < beta:
+                    beta = value
+            best_val = best_val_iter
+            best_move = best_move_iter
 
     print("final score:", best_val, hit_count, len(seen_states))
     return best_move

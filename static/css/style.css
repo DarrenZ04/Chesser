@@ -11,7 +11,8 @@ body {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background-color: #f0d0a0;   /* light wood-tone background */
+  background-color: #f0d0a0;
+  /* light wood-tone background */
   font-family: Arial, sans-serif;
 }
 
@@ -25,6 +26,40 @@ body {
 .square-available-move {
   background-color: rgba(255, 255, 255, 0.5) !important;
   border-radius: 50%;
+}
+
+/* Move indicator dots */
+.move-dot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: rgba(128, 128, 128, 0.6);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Capture move indicator (larger dot) */
+.capture-dot {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background-color: rgba(128, 128, 128, 0.8);
+  border: 2px solid rgba(64, 64, 64, 0.9);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Selected piece highlight */
+.square-selected {
+  background-color: rgba(128, 128, 128, 0.4) !important;
 }
 
 /* Optional: messages or status bars */

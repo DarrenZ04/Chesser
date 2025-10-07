@@ -20,15 +20,16 @@ def new_game():
 def make_move():
     data = request.get_json()
     fen = data['fen']              # current position in FEN
-    move_uci = data.get('move')    # human’s UCI string, e.g. "e2e4", or None if AI to play
+    move_uci = data.get('move')    # human's UCI string, e.g. "e2e4", or None if AI to play
+    depth = data.get('depth', 3)   # AI lookahead depth, default to 3
     board = chess.Board(fen)
 
     # Apply human move if provided
     if move_uci:
         board.push_uci(move_uci)
 
-    # Let the AI pick its move
-    ai_move = get_best_move(board)    # returns a chess.Move
+    # Let the AI pick its move with specified depth
+    ai_move = get_best_move(board, depth)    # returns a chess.Move
     board.push(ai_move)
 
     return jsonify({
