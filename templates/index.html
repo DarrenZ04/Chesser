@@ -1,48 +1,148 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
-    <title>Web Chess</title>
+    <title>Chesser - AI Chess Bot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- chessboard.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
 
-    <!-- your custom styles -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <!-- Custom styles -->
+    <style>
+        .backdrop-blur-sm {
+            backdrop-filter: blur(4px);
+        }
+
+        .bg-card\/50 {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .bg-secondary\/50 {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .chess-board-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .square-selected {
+            background-color: #4ade80 !important;
+            box-shadow: inset 0 0 0 3px #22c55e;
+        }
+
+        .bot-move-highlight {
+            background-color: #fbbf24 !important;
+            box-shadow: inset 0 0 0 2px #f59e0b;
+        }
+
+        .move-dot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .capture-dot {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 0, 0, 0.3);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .thinking-indicator {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
 </head>
 
-<body>
-    <div id="container">
-        <h1 style="text-align: center;">Chesser</h1>
-        <div id="status"></div>
-        <div style="text-align: center; margin: 20px 0;">
-            <label for="depth-selector" style="margin-right: 10px;">AI Lookahead Depth:</label>
-            <select id="depth-selector" style="padding: 5px; font-size: 16px;">
-                <option value="1">1 move</option>
-                <option value="2">2 moves</option>
-                <option value="3" selected>3 moves</option>
-                <option value="4">4 moves</option>
-                <option value="5">5 moves</option>
-                <option value="6">6 moves</option>
-                <option value="7">7 moves</option>
-                <option value="8">8 moves</option>
-            </select>
-            <button id="new-game-btn" style="margin-left: 20px; padding: 5px 15px; font-size: 16px;">New Game</button>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <main class="min-h-screen flex items-center justify-center p-4">
+        <div
+            class="w-full max-w-4xl p-6 md:p-8 backdrop-blur-sm bg-card/50 border-2 border-white/20 rounded-lg shadow-2xl">
+            <div class="space-y-4">
+                <!-- Header -->
+                <!-- Made header smaller and more compact -->
+                <div class="text-center space-y-1">
+                    <div class="flex items-center justify-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i>
+                        <h1 class="text-2xl font-bold tracking-tight text-white">Chesser</h1>
+                        <i data-lucide="sparkles" class="w-4 h-4 text-yellow-400"></i>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div
+                    class="flex flex-col sm:flex-row items-center justify-center gap-4 p-4 bg-secondary/50 rounded-lg border border-white/10">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="brain" class="w-5 h-5 text-blue-400"></i>
+                        <label for="depth-selector" class="text-sm font-medium text-white">
+                            AI Depth:
+                        </label>
+                        <select id="depth-selector"
+                            class="w-32 px-3 py-1 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="1" class="bg-gray-800">1 move</option>
+                            <option value="2" class="bg-gray-800">2 moves</option>
+                            <option value="3" selected class="bg-gray-800">3 moves</option>
+                            <option value="4" class="bg-gray-800">4 moves</option>
+                            <option value="5" class="bg-gray-800">5 moves</option>
+                            <option value="6" class="bg-gray-800">6 moves</option>
+                            <option value="7" class="bg-gray-800">7 moves</option>
+                            <option value="8" class="bg-gray-800">8 moves</option>
+                        </select>
+                    </div>
+
+                    <button id="new-game-btn"
+                        class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        New Game
+                    </button>
+                </div>
+
+                <!-- Chess Board -->
+                <div class="chess-board-wrapper">
+                    <div id="board" class="w-full max-w-[600px] mx-auto" style="aspect-ratio: 1/1;"></div>
+                </div>
+
+                <!-- Status -->
+                <div id="thinking-indicator"
+                    class="flex items-center justify-center gap-2 text-blue-400 thinking-indicator hidden">
+                    <i data-lucide="brain" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">AI is thinking...</span>
+                </div>
+            </div>
         </div>
-        <div id="board" style="width: 600px; margin: auto;"></div>
-    </div>
+    </main>
 
-    <!-- 1) Load jQuery (no integrity) -->
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <!-- 2) Load chess.js (correct path) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
-
-    <!-- 3) Load chessboard.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
 
-    <!-- 4) Your app logic last -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 

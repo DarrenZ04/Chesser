@@ -1,4 +1,3 @@
-from flask import Flask, request, jsonify
 from flask import Flask, render_template, request, jsonify
 import chess
 from chess_bot import get_best_move, board_to_array  # import your functions

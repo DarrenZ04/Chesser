@@ -2,11 +2,17 @@ $(function () {
   const game = new Chess();
   let selectedSquare = null;
   let possibleMoves = [];
+  let botLastMove = null;
+  let isThinking = false;
 
   const board = Chessboard('board', {
     draggable: true,
     position: 'start',
     pieceTheme: '/static/images/{piece}.png',
+    moveSpeed: 'instant',
+    snapbackSpeed: 'instant',
+    appearSpeed: 'instant',
+    trashSpeed: 'instant',
     onDrop,
     onDragStart: onDragStart,
     onMouseoverSquare: onMouseoverSquare,
@@ -19,9 +25,37 @@ $(function () {
     return parseInt($('#depth-selector').val());
   }
 
+  // Show thinking indicator
+  function showThinkingIndicator() {
+    isThinking = true;
+    $('#thinking-indicator').removeClass('hidden');
+  }
+
+  // Hide thinking indicator
+  function hideThinkingIndicator() {
+    isThinking = false;
+    $('#thinking-indicator').addClass('hidden');
+  }
+
+  // Highlight bot's last move
+  function highlightBotMove(from, to) {
+    $('.bot-move-highlight').removeClass('bot-move-highlight');
+    $(`#board .square-${from}`).addClass('bot-move-highlight');
+    $(`#board .square-${to}`).addClass('bot-move-highlight');
+    botLastMove = { from, to };
+  }
+
+  // Clear bot move highlights
+  function clearBotMoveHighlights() {
+    $('.bot-move-highlight').removeClass('bot-move-highlight');
+    botLastMove = null;
+  }
+
   // New game function
   function startNewGame() {
-    clearMoveIndicators(); // Clear any existing indicators
+    clearMoveIndicators();
+    clearBotMoveHighlights();
+    hideThinkingIndicator();
     $.getJSON('/api/new_game', data => {
       game.load(data.fen);
       board.position(data.fen);
@@ -136,12 +170,18 @@ $(function () {
       clearMoveIndicators();
       board.position(game.fen());
 
-      // Make AI move
-      makeAIMove();
+      // Make AI move with a small delay for better UX
+      setTimeout(() => {
+        makeAIMove();
+      }, 100);
     }
   }
 
   function makeAIMove() {
+    if (isThinking) return; // Prevent multiple simultaneous AI moves
+
+    showThinkingIndicator();
+
     $.ajax({
       url: '/api/move',
       method: 'POST',
@@ -151,14 +191,27 @@ $(function () {
         depth: getCurrentDepth()
       }),
       success: resp => {
-        // apply the engine's move and redraw
+        // Store the history before applying the move
+        const historyBefore = game.history({ verbose: true });
+
+        // Apply the engine's move and redraw
         game.load(resp.fen);
         board.position(resp.fen);
         clearMoveIndicators(); // Clear any remaining indicators
+
+        // Get the history after applying the move to find the bot's move
+        const historyAfter = game.history({ verbose: true });
+        if (historyAfter.length > historyBefore.length) {
+          const botMove = historyAfter[historyAfter.length - 1];
+          highlightBotMove(botMove.from, botMove.to);
+        }
+
+        hideThinkingIndicator();
       },
       error: () => {
         // if something went wrong, just snap back to the current FEN
         board.position(game.fen());
+        hideThinkingIndicator();
       }
     });
   }
@@ -178,9 +231,11 @@ $(function () {
     clearMoveIndicators();
     board.position(game.fen());
 
-    // 3) Make AI move
-    makeAIMove();
+    // 3) Make AI move with a small delay for better UX
+    setTimeout(() => {
+      makeAIMove();
+    }, 100);
 
-    // no need to return anything — we’ve already updated the UI
+    // no need to return anything — we've already updated the UI
   }
 });
