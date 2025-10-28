@@ -1,8 +1,20 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import os
 import chess
 from chess_bot import get_best_move  # import your functions
 
-app = Flask(__name__)
+# Get the base directory
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+app = Flask(__name__, 
+            static_folder='static',
+            static_url_path='/static',
+            template_folder='templates')
+
+# Serve static files
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
 
 @app.route('/')
 def index():

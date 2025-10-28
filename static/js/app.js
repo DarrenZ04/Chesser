@@ -8,7 +8,13 @@ $(function () {
   const board = Chessboard('board', {
     draggable: true,
     position: 'start',
-    pieceTheme: '/static/images/{piece}.png',
+    pieceTheme: function (piece) {
+      // Convert chessboard.js piece notation (wP, bK) to our file naming (wp, bk)
+      const color = piece.charAt(0);
+      const pieceType = piece.charAt(1);
+      const map = { 'P': 'p', 'R': 'r', 'N': 'n', 'B': 'b', 'Q': 'q', 'K': 'k' };
+      return '/static/images/' + color + map[pieceType] + '.png';
+    },
     moveSpeed: 'instant',
     snapbackSpeed: 'instant',
     appearSpeed: 'instant',
