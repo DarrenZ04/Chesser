@@ -108,3 +108,4 @@ server.log
 
 # Ignore chess GUI cache
 chess_gui_cache/
+.vercel

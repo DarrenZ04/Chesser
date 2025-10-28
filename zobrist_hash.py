@@ -1,11 +1,16 @@
 import math
-import pygame
 import sys
 import os
 import chess
 import numpy as np
 import chess.polyglot
 import random
+
+# Pygame is not needed for web deployment
+try:
+    import pygame
+except ImportError:
+    pygame = None
 
 np.random.seed(718)
 

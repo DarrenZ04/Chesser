@@ -1,5 +1,4 @@
 import math
-import pygame
 import sys
 import os
 import chess
@@ -7,7 +6,13 @@ import numpy as np
 import chess.polyglot
 import random
 
-from zobrist_hash import *
+# Pygame is not needed for web deployment
+try:
+    import pygame
+except ImportError:
+    pygame = None
+
+from zobrist_hash import get_board_hash, process_move, black_turn
 
 # [-4, -2, -3, -5, -6, -3, -2, -4],  
 # [-1, -1, -1, -1, -1, -1, -1, -1],  
@@ -41,7 +46,14 @@ PIECE_MAP = {
 lookahead = 3
 
 # Opening book
-BOOK = chess.polyglot.open_reader("openings/book.bin")
+BOOK = None
+try:
+    book_path = os.path.join(os.path.dirname(__file__), "openings", "book.bin")
+    if os.path.exists(book_path):
+        BOOK = chess.polyglot.open_reader(book_path)
+except Exception as e:
+    print(f"Warning: Could not load opening book: {e}")
+    BOOK = None
 
 # Transposition table and helpers
 seen_states = {}
@@ -354,7 +366,7 @@ def get_best_move(board, depth=None):
         return None
 
     # Opening book for early moves
-    if board.fullmove_number <= 10:
+    if BOOK is not None and board.fullmove_number <= 10:
         try:
             book_move = get_opening_move(board)
         except Exception:
@@ -442,6 +454,8 @@ def get_best_move(board, depth=None):
 
 # ========= Opening book =========
 def get_opening_move(board: chess.Board) -> chess.Move | None:
+    if BOOK is None:
+        return None
     try:
         entry = BOOK.weighted_choice(board)
         return entry.move if entry else None
