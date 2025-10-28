@@ -3,6 +3,9 @@
 **Chesser** is a Python-based chess game built with **Pygame** and **python-chess**, offering smooth graphics, intuitive controls, and easy extensibility.  
 It can be played locally (human vs. human) or expanded with an AI opponent, opening books, and advanced chess features.
 
+A demo of the project can be tested at: https://chesser-bot.vercel.app/
+We recommend only a layer of 3 for reasonable run speed.
+
 ## Web Deployment (Vercel)
 
 This application has been configured to deploy to Vercel as a web application.
